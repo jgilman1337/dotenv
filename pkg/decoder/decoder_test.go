@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Inner struct (linked via pointer)
 type FlagBox struct {
 	Bool1 bool `env:"BOOL1"`
 	Bool2 bool `env:"BOOL2"`
@@ -16,6 +17,7 @@ type FlagBox struct {
 	Bool4 bool `env:"BOOL4"`
 }
 
+// Outermost struct
 type Config struct {
 	AppName  string   `env:"APP_NAME"`
 	AppPort  int32    `env:"APP_PORT"`
