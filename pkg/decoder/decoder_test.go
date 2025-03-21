@@ -1,10 +1,12 @@
 package decoder_test
 
 import (
-	"github.com/golobby/dotenv/v2/pkg/decoder"
-	"github.com/stretchr/testify/assert"
 	"os"
 	"testing"
+
+	"github.com/golobby/dotenv/v2"
+	"github.com/golobby/dotenv/v2/pkg/decoder"
+	"github.com/stretchr/testify/assert"
 )
 
 type FlagBox struct {
@@ -30,14 +32,30 @@ type Config struct {
 	}
 }
 
-func TestLoad(t *testing.T) {
+func TestLoadBytes(t *testing.T) {
+	bytes, err := os.ReadFile("./../../assets/.env")
+	assert.NoError(t, err)
+
+	dec := dotenv.NewDecoder(bytes)
+	loadTestsBackend(t, dec)
+}
+
+func TestLoadFile(t *testing.T) {
 	f, err := os.Open("./../../assets/.env")
 	assert.NoError(t, err)
 
+	dec := dotenv.NewDecoder(f)
+	loadTestsBackend(t, dec)
+
+	err = f.Close()
+	assert.NoError(t, err)
+}
+
+func loadTestsBackend(t *testing.T, dec *decoder.Decoder) {
 	c := &Config{}
 	c.FlagBox = &FlagBox{}
 
-	err = decoder.Decoder{File: f}.Decode(c)
+	err := dec.Decode(c)
 	assert.NoError(t, err)
 
 	assert.Equal(t, "DotEnv", c.AppName)
@@ -54,9 +72,6 @@ func TestLoad(t *testing.T) {
 	assert.Equal(t, " OK ' 3 ", c.QuoteBox.Quote3)
 	assert.Equal(t, " OK \" 4 ", c.QuoteBox.Quote4)
 	assert.Equal(t, " OK # 5 ", c.QuoteBox.Quote5)
-
-	err = f.Close()
-	assert.NoError(t, err)
 }
 
 func TestLoad_With_Default_Value(t *testing.T) {

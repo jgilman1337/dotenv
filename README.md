@@ -7,15 +7,23 @@
 # DotEnv
 GoLobby DotEnv is a lightweight package for loading dot env (.env) files into structs for Go projects
 
+## Fork
+This project is a fork of `github.com/golobby/dotenv` that aims to be mostly compatible with the upstream repository, albeit with a few breaking changes (underlined in the below list). The following are notable changes unique to this fork:
+
+- <u>Requires Go >= 1.18 due to use of generics in `dotenv.NewDecoder()` and `dotenv.NewEncoder()`</u>
+- Allows initialization of `decoder.Decoder` via a byte slice or file descriptor via `dotenv.NewDecoder()`
+- Addition of dotenv encoder via the `encoder` package
+- Addition of `dotenv.NewDecoder()`, which can take a byte slice or file descriptor
+
 ## Documentation
 ### Supported Versions
-It requires Go `v1.16` or newer versions.
+It requires Go `v1.18` or newer versions.
 
 ### Installation
 To install this package run the following command in the root of your project.
 
 ```bash
-go get github.com/golobby/dotenv
+go get github.com/golobby/dotenv/v2
 ```
 
 ### Usage Example

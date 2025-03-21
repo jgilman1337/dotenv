@@ -2,11 +2,19 @@
 package dotenv
 
 import (
-	"github.com/golobby/dotenv/v2/pkg/decoder"
 	"os"
+
+	"github.com/golobby/dotenv/v2/pkg/decoder"
 )
 
-// NewDecoder creates a new instance of decoder.Decoder.
-func NewDecoder(file *os.File) *decoder.Decoder {
-	return &decoder.Decoder{File: file}
+// NewDecoder creates a new instance of decoder.Decoder using a byte slice or file.
+func NewDecoder[T []byte | *os.File](data T) *decoder.Decoder {
+	switch v := any(data).(type) {
+	case []byte:
+		return &decoder.Decoder{Bytes: v}
+	case *os.File:
+		return &decoder.Decoder{File: v}
+	default:
+		return nil //Shouldn't ever be hit
+	}
 }

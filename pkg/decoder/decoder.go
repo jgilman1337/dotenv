@@ -2,37 +2,53 @@ package decoder
 
 import (
 	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
-	"github.com/golobby/cast"
+	"io"
 	"os"
 	"reflect"
 	"strings"
 	"unsafe"
+
+	"github.com/golobby/cast"
 )
 
 type Decoder struct {
-	File *os.File
+	Bytes []byte
+	File  *os.File
 }
 
-// Decode reads a dot env (.env) file and fills the given struct fields.
+// Decode reads a dot env (.env) byte slice and fills the given struct fields.
 func (d Decoder) Decode(structure interface{}) error {
-	kvs, err := d.read(d.File)
+	var datSrc io.Reader
+
+	//Try to read the byte slice field first, otherwise read the file field instead
+	if d.Bytes != nil {
+		datSrc = bytes.NewBuffer(d.Bytes)
+	} else if d.File != nil {
+		datSrc = d.File
+	} else {
+		return fmt.Errorf("no valid data sources could be found for the decoder")
+	}
+
+	//Read in the dotenv data source
+	kvs, err := d.read(datSrc)
 	if err != nil {
 		return err
 	}
 
-	if err = d.feed(structure, kvs); err != nil {
+	if err := d.feed(structure, kvs); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// read scans a dot env (.env) file and extracts its key/value pairs.
-func (d Decoder) read(file *os.File) (map[string]string, error) {
+// read scans a dot env (.env) data source and extracts its key/value pairs.
+func (d Decoder) read(dat io.Reader) (map[string]string, error) {
 	kvs := map[string]string{}
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(dat)
 
 	for i := 1; scanner.Scan(); i++ {
 		if k, v, err := d.parse(scanner.Text()); err != nil {
@@ -62,7 +78,7 @@ func (d Decoder) parse(line string) (string, string, error) {
 			break
 		}
 
-		if string(ln[i]) == "#" && pi == 1 && iq == false {
+		if string(ln[i]) == "#" && pi == 1 && !iq {
 			break
 		}
 
@@ -72,7 +88,7 @@ func (d Decoder) parse(line string) (string, string, error) {
 		}
 
 		if string(ln[i]) == " " && pi == 1 {
-			if iq == false && kv[pi] == "" {
+			if !iq && kv[pi] == "" {
 				continue
 			}
 		}
@@ -82,7 +98,7 @@ func (d Decoder) parse(line string) (string, string, error) {
 				iq = true
 				qt = string(ln[i])
 				continue
-			} else if iq == true && qt == string(ln[i]) {
+			} else if iq && qt == string(ln[i]) {
 				break
 			}
 		}
@@ -91,7 +107,7 @@ func (d Decoder) parse(line string) (string, string, error) {
 	}
 
 	kv[0] = strings.TrimSpace(kv[0])
-	if iq == false {
+	if !iq {
 		kv[1] = strings.TrimSpace(kv[1])
 	}
 
@@ -134,7 +150,8 @@ func (d Decoder) feedStruct(s reflect.Value, vars map[string]string) error {
 				return err
 			}
 		} else if s.Type().Field(i).Type.Kind() == reflect.Ptr {
-			if s.Field(i).IsZero() == false && s.Field(i).Elem().Type().Kind() == reflect.Struct {
+			//if s.Field(i).IsZero() == false && s.Field(i).Elem().Type().Kind() == reflect.Struct {
+			if !s.Field(i).IsZero() && s.Field(i).Elem().Type().Kind() == reflect.Struct {
 				if err := d.feedStruct(s.Field(i).Elem(), vars); err != nil {
 					return err
 				}
