@@ -26,7 +26,7 @@ To install this package run the following command in the root of your project.
 go get github.com/golobby/dotenv/v2
 ```
 
-### Usage Example
+### Decoder Usage Example
 Sample `.env` file:
 
 ```env
@@ -44,7 +44,7 @@ DB_USER=root
 DB_PASS=secret
 ```
 
-Sample `.go` file:
+Sample struct:
 
 ```go
 type Config struct {
@@ -62,7 +62,22 @@ type Config struct {
     IPs []string `env:"IPS"`
 	IDs []int64  `env:"IDS"`
 }
+```
 
+Reading via byte slice:
+
+```go
+config := Config{}
+bytes := []byte(...) //This can be supplied via external file reader or other byte source
+
+err = dotenv.NewDecoder(bytes).Decode(&config)
+
+// Use `config` struct in your app!
+```
+
+Reading via file descriptor:
+
+```go
 config := Config{}
 file, err := os.Open(".env")
 
