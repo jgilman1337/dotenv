@@ -2,7 +2,7 @@
 package dotenv
 
 import (
-	"github.com/golobby/dotenv/pkg/decoder"
+	"github.com/golobby/dotenv/v2/pkg/decoder"
 	"os"
 )
 

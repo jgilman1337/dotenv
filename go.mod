@@ -1,4 +1,4 @@
-module github.com/golobby/dotenv
+module github.com/golobby/dotenv/v2
 
 go 1.16
 
