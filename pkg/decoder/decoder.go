@@ -19,7 +19,7 @@ type Decoder struct {
 	File  *os.File
 }
 
-// Decode reads a dot env (.env) byte slice and fills the given struct fields.
+// Decode reads a dot env (.env) byte slice or file descriptor and fills the given struct fields.
 func (d Decoder) Decode(structure interface{}) error {
 	var datSrc io.Reader
 
@@ -38,6 +38,7 @@ func (d Decoder) Decode(structure interface{}) error {
 		return err
 	}
 
+	//Populate the struct
 	if err := d.feed(structure, kvs); err != nil {
 		return err
 	}
@@ -129,30 +130,40 @@ func (d Decoder) feed(structure interface{}, kvs map[string]string) error {
 		}
 	}
 
-	return errors.New("dotenv: invalid structure")
-}
+	return errors.New("dotenv decode: invalid structure")
+} // TODO: might want to make this a utility since it is common to both the encoder and decoder
 
 // feedStruct sets reflected struct fields with the given key/value pairs.
 func (d Decoder) feedStruct(s reflect.Value, vars map[string]string) error {
+	//Iterate over the fields of the struct
 	for i := 0; i < s.NumField(); i++ {
-		if t, exist := s.Type().Field(i).Tag.Lookup("env"); exist {
+		//Get the current field info
+		field := s.Type().Field(i)
+		fieldValue := s.Field(i)
+
+		//Check for the `env` struct tag
+		if t, exist := field.Tag.Lookup("env"); exist {
+			//Case 1: ordinary field; parse the string and populate the corresponding struct field
 			if val, exist := vars[t]; exist {
-				v, err := cast.FromType(val, s.Type().Field(i).Type)
+				//Perform the cast to the same type as the target field
+				v, err := cast.FromType(val, field.Type)
 				if err != nil {
-					return fmt.Errorf("dotenv: cannot set `%v` field; err: %v", s.Type().Field(i).Name, err)
+					return fmt.Errorf("dotenv: cannot set `%v` field; err: %v", field.Name, err)
 				}
 
-				ptr := reflect.NewAt(s.Field(i).Type(), unsafe.Pointer(s.Field(i).UnsafeAddr())).Elem()
+				//Set the value using `unsafe`
+				ptr := reflect.NewAt(fieldValue.Type(), unsafe.Pointer(fieldValue.UnsafeAddr())).Elem()
 				ptr.Set(reflect.ValueOf(v))
 			}
-		} else if s.Type().Field(i).Type.Kind() == reflect.Struct {
-			if err := d.feedStruct(s.Field(i), vars); err != nil {
+		} else if field.Type.Kind() == reflect.Struct {
+			//Case 2: field is an embedded struct; recursively process it
+			if err := d.feedStruct(fieldValue, vars); err != nil {
 				return err
 			}
-		} else if s.Type().Field(i).Type.Kind() == reflect.Ptr {
-			//if s.Field(i).IsZero() == false && s.Field(i).Elem().Type().Kind() == reflect.Struct {
-			if !s.Field(i).IsZero() && s.Field(i).Elem().Type().Kind() == reflect.Struct {
-				if err := d.feedStruct(s.Field(i).Elem(), vars); err != nil {
+		} else if field.Type.Kind() == reflect.Ptr {
+			//Case 3: field is a pointer to a struct; dereference and recursively process it
+			if !fieldValue.IsZero() && fieldValue.Elem().Type().Kind() == reflect.Struct {
+				if err := d.feedStruct(fieldValue.Elem(), vars); err != nil {
 					return err
 				}
 			}
