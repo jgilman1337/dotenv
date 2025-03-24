@@ -3,6 +3,7 @@ package dotenv
 
 import (
 	"bytes"
+	"io"
 	"os"
 
 	"github.com/golobby/dotenv/v2/pkg/decoder"
@@ -11,19 +12,25 @@ import (
 
 // NewDecoder creates a new instance of decoder.Decoder using a byte slice or file descriptor.
 func NewDecoder[T ~[]byte | ~*bytes.Buffer | ~*os.File | ~*bytes.Reader](data T) *decoder.Decoder {
+	dec := &decoder.Decoder{}
+	var src io.Reader
+
 	//Go's generics cannot inference interfaces if 2+ cases fall thru to the same statement; feel free to dedupe the cases for buffer, file, and reader if and when the Go team fixes this
 	switch v := any(data).(type) {
 	case []byte:
-		return &decoder.Decoder{Src: bytes.NewReader(v)}
+		src = bytes.NewReader(v)
 	case *bytes.Buffer:
-		return &decoder.Decoder{Src: v}
+		src = v
 	case *os.File:
-		return &decoder.Decoder{Src: v}
+		src = v
 	case *bytes.Reader:
-		return &decoder.Decoder{Src: v}
+		src = v
 	default:
 		panic("unexpected type") //Shouldn't ever be hit
 	}
+
+	dec.Src = src
+	return dec
 }
 
 // NewEncoder creates a new instance of encoder.Encoder using a byte slice or file descriptor.
