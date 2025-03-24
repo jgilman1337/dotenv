@@ -25,7 +25,6 @@ func (e Encoder) Encode(structure interface{}) error {
 	}
 
 	//Write the struct data to a map of strings
-	//TODO: add options struct and allow
 	items, err := e.feed(structure)
 	if err != nil {
 		return err
@@ -33,16 +32,50 @@ func (e Encoder) Encode(structure interface{}) error {
 
 	//Write the map to the output objects set by the encoder
 	for i, item := range items {
-		//Create the KV line
-		delim := ""
+		//Create the initial KV line
+		kvSep := ""
 		if e.Opts.SpaceAroundKV {
-			delim = " "
+			kvSep = " "
 		}
-		line := item.Key + delim + "=" + delim + item.Value
+		entry := item.Key + kvSep + "=" + kvSep + item.Value
+		lineDelim := "\n" //It is assumed that LF is ok on the host OS
 
-		//Add the line terminator before the line
+		//Create the metadata line
+		meta := ""
+		mpath := ""
+		mtype := ""
+		if e.Opts.IncludePath || e.Opts.IncludeTyping {
+			//Override the "BlankLinesBetweenKV" value to make it always true
+			e.Opts.BlankLinesBetweenKV = true
+
+			//Init the path and type sections if the user opted to include them
+			if e.Opts.IncludePath {
+				mpath = "Path: " + item.Path
+			}
+			if e.Opts.IncludeTyping {
+				mtype = "Type: " + item.Datatype
+			}
+
+			//If both were requested, add a delimiter
+			metaPrefix := "# "
+			mdelim := ""
+			if e.Opts.IncludePath && e.Opts.IncludeTyping {
+				mdelim = "\n" + metaPrefix
+				if e.Opts.MinifyPTInfo {
+					mdelim = "; "
+				}
+			}
+			meta = metaPrefix + mpath + mdelim + mtype + lineDelim
+		}
+
+		//Add a line terminator beforehand if this line succeeds a previous one
+		line := meta + entry
 		if i > 0 {
-			line = "\n" + line //It is assumed that LF is ok on the host OS
+			delim := lineDelim
+			if e.Opts.BlankLinesBetweenKV {
+				delim += delim
+			}
+			line = delim + line
 		}
 
 		//Write the line
@@ -94,17 +127,21 @@ func (e Encoder) feedMap(s reflect.Value, path string, items *[]_EnvLine) error 
 			}
 			dt := fieldValue.Type().String()
 
-			fmt.Printf("path: %s\n", path+field.Name)
-
-			*items = append(*items, _EnvLine{t, strval, dt, path})
+			*items = append(*items, _EnvLine{t, strval, dt, path + field.Name})
 		} else if field.Type.Kind() == reflect.Struct || field.Type.Kind() == reflect.Ptr {
 			//Case 2/3: field is an embedded struct; recursively process it
+			/*
+				Embedded structs don't get an `env` struct tag since dotenv files are flat,
+				and have no concept of nesting, unlike TOML. Because of this, it is assumed
+				that this section will only process structs and pointers to structs.
+			*/
+
 			//Dereference the struct if its a nonzero struct pointer
 			estruct := fieldValue
 			if field.Type.Kind() == reflect.Ptr &&
 				!fieldValue.IsZero() && fieldValue.Elem().Type().Kind() == reflect.Struct {
 				estruct = fieldValue.Elem()
-			} //TODO: what about non-struct pointers?
+			} //TODO: what about non-struct pointers? What about if the user neglected to label an an ordinary field with the `env` struct tag?
 
 			//Recursively process the struct
 			newp := path + field.Name + "."
