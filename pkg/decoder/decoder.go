@@ -2,11 +2,9 @@ package decoder
 
 import (
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"reflect"
 	"strings"
 	"unsafe"
@@ -15,25 +13,18 @@ import (
 )
 
 type Decoder struct {
-	Bytes []byte
-	File  *os.File
+	Src io.Reader
 }
 
 // Decode reads a dot env (.env) byte slice or file descriptor and fills the given struct fields.
 func (d Decoder) Decode(structure interface{}) error {
-	var datSrc io.Reader
-
-	//Try to read the byte slice field first, otherwise read the file field instead
-	if d.Bytes != nil {
-		datSrc = bytes.NewBuffer(d.Bytes)
-	} else if d.File != nil {
-		datSrc = d.File
-	} else {
+	//Ensure the decoder has a data source to read from
+	if d.Src == nil {
 		return fmt.Errorf("no valid data sources could be found for the decoder")
 	}
 
 	//Read in the dotenv data source
-	kvs, err := d.read(datSrc)
+	kvs, err := d.read(d.Src)
 	if err != nil {
 		return err
 	}
@@ -131,7 +122,7 @@ func (d Decoder) feed(structure interface{}, kvs map[string]string) error {
 	}
 
 	return errors.New("dotenv decode: invalid structure")
-} // TODO: might want to make this a utility since it is common to both the encoder and decoder
+}
 
 // feedStruct sets reflected struct fields with the given key/value pairs.
 func (d Decoder) feedStruct(s reflect.Value, vars map[string]string) error {

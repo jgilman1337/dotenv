@@ -88,7 +88,7 @@ func TestLoad_With_Default_Value(t *testing.T) {
 	c := &Config{}
 	c.AppUrl = "https://example.com"
 
-	err = decoder.Decoder{File: f}.Decode(c)
+	err = decoder.Decoder{Src: f}.Decode(c)
 	assert.NoError(t, err)
 
 	assert.Equal(t, "DotEnv", c.AppName)
@@ -103,7 +103,7 @@ func TestLoad_With_Invalid_File(t *testing.T) {
 	assert.NoError(t, err)
 
 	c := &Config{}
-	err = decoder.Decoder{File: f}.Decode(c)
+	err = decoder.Decoder{Src: f}.Decode(c)
 	assert.Errorf(t, err, "dotenv: invalid syntax in line 1")
 
 	err = f.Close()
@@ -114,7 +114,7 @@ func TestLoad_With_Non_Readable_File(t *testing.T) {
 	f, _ := os.OpenFile("./../../assets/.env.invalid", os.O_APPEND, 0644)
 
 	c := &Config{}
-	err := decoder.Decoder{File: f}.Decode(c)
+	err := decoder.Decoder{Src: f}.Decode(c)
 	assert.Error(t, err)
 }
 
@@ -123,7 +123,7 @@ func TestLoad_With_Invalid_Structure(t *testing.T) {
 	assert.NoError(t, err)
 
 	var number int
-	err = decoder.Decoder{File: f}.Decode(&number)
+	err = decoder.Decoder{Src: f}.Decode(&number)
 	assert.Errorf(t, err, "dotenv: invalid structure")
 
 	err = f.Close()
@@ -137,7 +137,7 @@ func TestLoad_With_Invalid_Field_It_Should_Fail(t *testing.T) {
 	sample := &struct {
 		BOOL1 bool `env:"APP_NAME"`
 	}{}
-	err = decoder.Decoder{File: f}.Decode(sample)
+	err = decoder.Decoder{Src: f}.Decode(sample)
 	assert.Error(t, err)
 
 	err = f.Close()
@@ -157,7 +157,7 @@ func TestLoad_With_Invalid_Nested_Structure_Field_It_Should_Fail(t *testing.T) {
 	}{}
 	outer.Inner = Inner{}
 
-	err = decoder.Decoder{File: f}.Decode(outer)
+	err = decoder.Decoder{Src: f}.Decode(outer)
 	assert.Error(t, err)
 
 	err = f.Close()
@@ -177,7 +177,7 @@ func TestLoad_With_Invalid_Nested_Structure_Ptr_Field_It_Should_Fail(t *testing.
 	}{}
 	outer.Inner = &Inner{}
 
-	err = decoder.Decoder{File: f}.Decode(outer)
+	err = decoder.Decoder{Src: f}.Decode(outer)
 	assert.Error(t, err)
 
 	err = f.Close()
